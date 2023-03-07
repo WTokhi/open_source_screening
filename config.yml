@@ -6,7 +6,7 @@ open_source_data_path: input/open_source
 type_screening: ["leaked papers"]
 
 # train new model for tfidf-knn
-train_model: false
+train_model: true
 
 # Location of the logging file
 log_file: system.log

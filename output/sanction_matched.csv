@@ -1,0 +1,7 @@
+,client_name,client_lastname,client_dob,client_address,client_rol,start_date,end_date,match_percentage
+0,blaat,Ubiria,1967-03-07,amsterdam,housemate,2001-02-23,,
+1,blaat_2,Ubiria_2,1967-03-07,amsterdam,housemate,2001-02-23,,
+2,blaat_3,salek,1965-01-01,amsterdam,sanction,2001-02-23,,100.0
+3,blaat,Ubiria,1967-03-07,amsterdam,housemate,2017-03-10,,
+4,blaat_2,Ubiria_2,1967-03-07,amsterdam,housemate,2017-03-10,,
+5,blaat_3,salek,1965-01-01,amsterdam,sanction,2017-03-10,,100.0
