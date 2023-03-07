@@ -80,11 +80,11 @@ def main(config_path: str) -> None:
         for type_screening in config.get("type_screening"):
             if type_screening == "pep":
                 pep_parsed = open_source_parser.pep_parser()
-                pep_matched = string_match.match_client_data(pep_parsed, type_screening)
+                pep_matched = string_match.match_client_data(pep_parsed, type_screening, config.get("train_model"))
                 pep_matched.to_csv("output/pep_matched.csv")
             elif type_screening == "sanction":
                 sanction_parsed = open_source_parser.sanction_parser()
-                sanction_matched = string_match.match_client_data(sanction_parsed, type_screening)
+                sanction_matched = string_match.match_client_data(sanction_parsed, type_screening, config.get("train_model"))
                 sanction_matched.to_csv("output/sanction_matched.csv")   
             elif type_screening == "leaked papers":
                 leaked_papers_parsed = open_source_parser.leaked_papers_parser()
