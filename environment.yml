@@ -1,0 +1,10 @@
+name: open_source_screening
+dependencies:
+  - python=3.9
+  - fuzzywuzzy=0.18.0
+ # - unicodedata
+ # - unidecode=1.3.4
+ # - datetime
+  - numpy=1.21.5 
+  - pandas=1.4.2
+  - yaml=0.2.5
