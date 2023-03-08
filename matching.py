@@ -48,7 +48,8 @@ class StringMatching:
         #     self._log.error(msg)
         #     raise FileNotFoundError(msg)
     
-    def match_client_data(self, open_source_parsed: pd.DataFrame(), type_screening: str, train_model: bool) -> pd.DataFrame:
+    #TODO: How to make parameter train_model optional?
+    def match_client_data(self, open_source_parsed: pd.DataFrame(), type_screening: str, train_model: bool=True) -> pd.DataFrame:
         """Parses all client csv files from the input path into a DataFrame.
 
         The main purpose here is to concatenate the open source files and parse the names and date of births. 
@@ -87,7 +88,7 @@ class StringMatching:
         else:
             return self._fuzzy_match(input_data, open_source_parsed)
 
-    def _fuzzy_match(self, df_client: pd.DataFrame(), df_open_source: pd.DataFrame(), limit=2, threshold=75) -> pd.DataFrame():
+    def _fuzzy_match(self, df_client: pd.DataFrame(), df_open_source: pd.DataFrame(), limit: int=2, threshold: int=75) -> pd.DataFrame():
         """ Fuzzy match client name with names from open source.
 
             step 1. Match on date fo birth
@@ -183,8 +184,7 @@ class StringMatching:
             # Remove accents and perform NFKD character normalization
             strip_accents = "unicode",
 
-            # Preprocessing options. TODO: Why does this work?
-            #preprocessor= None,#lambda x, obj=self: obj._preprocessing(x),
+            # Preprocessing options.
             preprocessor= self._preprocessing,
             
             # Character ngrams with length 3
@@ -199,13 +199,15 @@ class StringMatching:
 
         if self._train_model:
             self._log.info('Getting tfidf matrix.')
+
+            # TODO: train['name'] values are not unique because a name can have more than 1 address. What to do here?
             train_tfidf = vectorizer.fit_transform(train["name"])
 
             self._log.info('Getting nearest neighbours.')
             nbrs = NearestNeighbors(n_neighbors=1, n_jobs=-1).fit(train_tfidf)
 
-            with open('output/train_tfidf.pickle', 'wb') as f:
-                pickle.dump(train_tfidf, f)
+            # with open('output/train_tfidf.pickle', 'wb') as f:
+            #     pickle.dump(train_tfidf, f)
             with open('output/vectorizer.pickle', 'wb') as f:
                 pickle.dump(vectorizer, f)
             with open('output/nbrs.pickle', 'wb') as f:
@@ -240,16 +242,18 @@ class StringMatching:
                 np.array(train["name"][j+1])[0], \
                 np.array(train["address"][j+1])[0], \
                 test["client_name"][i], \
+                test["client_address"][i], \
                 ]
             matches.append(temp)
 
-        matches = pd.DataFrame(matches, columns=["index",'Minkowski_score(lower is better)','name', 'address', 'client_name'])
-                
+        matches = pd.DataFrame(matches, columns=["index",'Minkowski_score(lower is better)','name', 'address', 'client_name', 'client_address'])
+        #train["levenshtein"] = matches.apply(lambda x: string_comparison(x["address"], x["client_address"]), axis=1)
+       
         self._log.info('Done')
         matches.drop_duplicates(inplace=True)
         matches.sort_values(by="index", ascending=True)
         print("\n")
-        #print(matches)
+        print(matches)
         return matches
 
     # TODO: This is an static method! 
@@ -300,12 +304,14 @@ class StringMatching:
             Returns clients who are registered at the same address.
         """
 
-        df_same_address = df_matched.merge(df_client, 
-                                        left_on=["client_address"], 
-                                        right_on=["client_address"], 
-                                        validate="m:m", 
-                                        suffixes=("", "_y"), 
-                                        how="left")
+        df_same_address = df_matched.merge(
+            df_client, 
+            left_on=["client_address"], 
+            right_on=["client_address"], 
+            validate="m:m", 
+            suffixes=("", "_y"), 
+            how="left"
+        )
 
         # Assign rol -> pep/sanctioned or housemate
         df_same_address["client_rol"] = np.where(df_same_address["client_name"]==df_same_address["client_name_y"], self._type_screening, "housemate")
