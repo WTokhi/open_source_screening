@@ -44,7 +44,7 @@ def main(config_path: str) -> None:
     config = load_config(config_path)
 
     log_file = config.get('log_file')
-    log_level = config.get('log_level')
+    log_level = config.get('log_level', 'debug')
 
     # TODO: when log level is missing in config.yml debug en info are not logged in .log file. Fix?
     if log_level:
@@ -80,11 +80,11 @@ def main(config_path: str) -> None:
         for type_screening in config.get("type_screening"):
             if type_screening == "pep":
                 pep_parsed = open_source_parser.pep_parser()
-                pep_matched = string_match.match_client_data(pep_parsed, type_screening, config.get("train_model"))
+                pep_matched = string_match.match_client_data(pep_parsed, type_screening)
                 pep_matched.to_csv("output/pep_matched.csv")
             elif type_screening == "sanction":
                 sanction_parsed = open_source_parser.sanction_parser()
-                sanction_matched = string_match.match_client_data(sanction_parsed, type_screening, config.get("train_model"))
+                sanction_matched = string_match.match_client_data(sanction_parsed, type_screening)
                 sanction_matched.to_csv("output/sanction_matched.csv")   
             elif type_screening == "leaked papers":
                 leaked_papers_parsed = open_source_parser.leaked_papers_parser()
