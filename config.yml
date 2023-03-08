@@ -12,7 +12,7 @@ train_model: true
 log_file: system.log
 
 # Logging level
-log_level: debug
+log_level: error
 
 # Yet to implement
-# Location of output file
+# Parameterize fuzzy matching threshold value to avoid the hard-coded value.
