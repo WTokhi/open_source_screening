@@ -267,13 +267,10 @@ class Parser:
                 'node_id', 'name', 'address', 'countries', 'link', 'name_entity',
                 'start_date', 'end_date',  'incorporation_date','inactivation_date','sourceID'
                 ]
-        officer_address_entity.head(5)
 
         # check results
         self._log.debug(f"Number of unique persons : {officer_address_entity['name'].nunique()}")
-
         self._log.debug(f"Number of unique countries : {officer_address_entity['countries'].nunique()}")
-        
         self._log.debug(f"Number of rows : {officer_address_entity[cols].shape[0]}")
         
         return officer_address_entity[cols]
