@@ -4,8 +4,8 @@ import argparse # type: ignore
 import pandas as pd # type: ignore
 import yaml # type: ignore
 
-from parser import Parser # type: ignore
 from matching import StringMatching # type: ignore
+from parser import Pep, Sanction, LeakedPapers
 
 LOG_FORMAT = "%(asctime)s - %(levelname)s - %(message)s"
 LOG_LEVELS = "debug", "info", "warning", "error", "critical"
@@ -46,19 +46,24 @@ def main(config_path: str) -> None:
     log_file = config.get('log_file')
     log_level = config.get('log_level', 'debug')
 
-    # TODO: when log level is missing in config.yml debug en info are not logged in .log file. Fix?
+    # Set root handler to debug.
     if log_level:
         logging.basicConfig(
-            level=log_level.upper(),
+            level=logging.DEBUG,
             format=LOG_FORMAT,
         )
 
     if log_file:
-        logger = logging.getLogger()
-        logger_formatter = logging.Formatter(LOG_FORMAT)
+        root_logger = logging.getLogger()
+
+        # Change level of terminal logger.
+        root_logger.handlers[0].setLevel(log_level.upper())
+
+        # Add file handler.
         file_handler = logging.FileHandler(filename=log_file)
+        logger_formatter = logging.Formatter(LOG_FORMAT)
         file_handler.setFormatter(logger_formatter)
-        logger.addHandler(file_handler)
+        root_logger.addHandler(file_handler)
 
     if not config.get('open_source_data_path'):
         msg = "Open source data path is missing in the configuration file."
@@ -72,26 +77,29 @@ def main(config_path: str) -> None:
         open_source_data_path = config.get('open_source_data_path')
         client_data_path = config.get('client_data_path')
 
-    open_source_parser = Parser(open_source_data_path)
     string_match = StringMatching(client_data_path)
-        
-    
+   
     try: 
         for type_screening in config.get("type_screening"):
             if type_screening == "pep":
-                pep_parsed = open_source_parser.pep_parser()
+                pep_parser = Pep(open_source_data_path)        
+                pep_parsed = pep_parser.pep_parser()
                 pep_matched = string_match.match_client_data(pep_parsed, type_screening)
                 pep_matched.to_csv("output/pep_matched.csv")
+
             elif type_screening == "sanction":
-                sanction_parsed = open_source_parser.sanction_parser()
+                sanction_parser = Sanction(open_source_data_path)        
+                sanction_parsed = sanction_parser.sanction_parser()
                 sanction_matched = string_match.match_client_data(sanction_parsed, type_screening)
-                sanction_matched.to_csv("output/sanction_matched.csv")   
+                sanction_matched.to_csv("output/sanction_matched.csv")
+
             elif type_screening == "leaked papers":
-                leaked_papers_parsed = open_source_parser.leaked_papers_parser()
+                leaked_papers_parser = LeakedPapers(open_source_data_path)  
+                leaked_papers_parsed = leaked_papers_parser.leaked_papers_parser()
                 leaked_papers_matched = string_match.match_client_data(leaked_papers_parsed, type_screening, config.get("train_model"))
                 leaked_papers_matched.to_csv("output/leaked_papers_matched.csv") 
             else:
-                pass       
+                print("hello")       
     except TypeError as error:
         msg = "input argument 'type screening' is missing or its format is incorrect."
         logger.error(msg)
