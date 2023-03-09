@@ -1,10 +1,10 @@
 """Module for screening clients."""
-import logging # type: ignore
-import argparse # type: ignore
-import pandas as pd # type: ignore
-import yaml # type: ignore
+import logging
+import argparse 
+import pandas as pd 
+import yaml
 
-from matching import StringMatching # type: ignore
+from matching import StringMatching
 from parser import Pep, Sanction, LeakedPapers
 
 LOG_FORMAT = "%(asctime)s - %(levelname)s - %(message)s"
