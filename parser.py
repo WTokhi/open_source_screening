@@ -1,4 +1,4 @@
-"""  Module for parsing the survey data as a pandas DataFrame"""
+"""  Module for parsing names."""
 # system packages
 import os
 import json
@@ -7,7 +7,7 @@ import logging
 
 import datetime as dt
 
-import pandas as pd # type ignore
+import pandas as pd
 import numpy as np
 
 import unicodedata
@@ -22,6 +22,7 @@ class NameMixin:
     def __init__(self) -> None:
 
         self._log = logging.getLogger(__name__)
+
         self._log.info("----------Superclass Parser is initialized----------")
 
 
