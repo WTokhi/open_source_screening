@@ -1,18 +1,18 @@
-# Location of input files
+# Location of input files.
 client_data_path: input/client/client_data.csv
 open_source_data_path: input/open_source
 
 # type of screening: "pep", "sanction", "leaked papers"
-type_screening: ["leaked papers"]
+type_screening: ["pep"]
 
-# train new model for tfidf-knn
-train_model: true
+# train new model for tfidf-knn.
+train_model: false
 
-# Location of the logging file
+# Location of the logging file.
 log_file: system.log
 
-# Logging level
-log_level: error
+# Set terminal logging level.
+log_level: ERROR
 
-# Yet to implement
+# Yet to implement.
 # Parameterize fuzzy matching threshold value to avoid the hard-coded value.
