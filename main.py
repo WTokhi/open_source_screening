@@ -1,7 +1,7 @@
 """Module for screening clients."""
 import logging
-import argparse 
-import pandas as pd 
+import argparse
+import pandas as pd
 import yaml
 
 from matching import StringMatching
@@ -43,14 +43,13 @@ def main(config_path: str) -> None:
 
     config = load_config(config_path)
 
-    log_file = config.get('log_file')
-    log_level = config.get('log_level', 'debug')
+    log_file = config.get("log_file")
+    log_level = config.get("log_level", "debug")
 
     # Set root handler to debug.
     if log_level:
         logging.basicConfig(
-            level=logging.DEBUG,
-            format=LOG_FORMAT,
+            level=logging.DEBUG, format=LOG_FORMAT,
         )
 
     if log_file:
@@ -65,54 +64,62 @@ def main(config_path: str) -> None:
         file_handler.setFormatter(logger_formatter)
         root_logger.addHandler(file_handler)
 
-    if not config.get('open_source_data_path'):
+    if not config.get("open_source_data_path"):
         msg = "Open source data path is missing in the configuration file."
         logger.error(msg)
         raise TypeError(msg)
-    elif not config.get('client_data_path'):
+    elif not config.get("client_data_path"):
         msg = "Client data path is missing in the configuration file."
         logger.error(msg)
         raise TypeError(msg)
     else:
-        open_source_data_path = config.get('open_source_data_path')
-        client_data_path = config.get('client_data_path')
+        open_source_data_path = config.get("open_source_data_path")
+        client_data_path = config.get("client_data_path")
 
     string_match = StringMatching(client_data_path)
-   
-    try: 
+
+    try:
         for type_screening in config.get("type_screening"):
             if type_screening == "pep":
-                pep_parser = Pep(open_source_data_path)        
+                pep_parser = Pep(open_source_data_path)
                 pep_parsed = pep_parser.pep_parser()
                 pep_matched = string_match.match_client_data(pep_parsed, type_screening)
                 pep_matched.to_csv("output/pep_matched.csv")
 
             elif type_screening == "sanction":
-                sanction_parser = Sanction(open_source_data_path)        
+                sanction_parser = Sanction(open_source_data_path)
                 sanction_parsed = sanction_parser.sanction_parser()
-                sanction_matched = string_match.match_client_data(sanction_parsed, type_screening)
+                sanction_matched = string_match.match_client_data(
+                    sanction_parsed, type_screening
+                )
                 sanction_matched.to_csv("output/sanction_matched.csv")
 
             elif type_screening == "leaked papers":
-                leaked_papers_parser = LeakedPapers(open_source_data_path)  
+                leaked_papers_parser = LeakedPapers(open_source_data_path)
                 leaked_papers_parsed = leaked_papers_parser.leaked_papers_parser()
-                leaked_papers_matched = string_match.match_client_data(leaked_papers_parsed, type_screening, config.get("train_model"))
-                leaked_papers_matched.to_csv("output/leaked_papers_matched.csv") 
+                leaked_papers_matched = string_match.match_client_data(
+                    leaked_papers_parsed, type_screening, config.get("train_model")
+                )
+                leaked_papers_matched.to_csv("output/leaked_papers_matched.csv")
             else:
-                print("hello")       
+                print("hello")
     except TypeError as error:
         msg = "input argument 'type screening' is missing or its format is incorrect."
         logger.error(msg)
         raise error(msg)
 
+
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser("Command line interface for open source screening.")
+    parser = argparse.ArgumentParser(
+        "Command line interface for open source screening."
+    )
     parser.add_argument(
-        "-c", "--config",
+        "-c",
+        "--config",
         type=str,
         help="file location of the input parameters",
         # default="",
-        required=True
+        required=True,
     )
     args = parser.parse_args()
 
