@@ -13,7 +13,9 @@ import numpy as np
 import unicodedata
 import unidecode
 
-class NameMixin:
+from abc import ABC, abstractmethod
+
+class NameMixin(ABC):
     """ 
     Superclass with functions for parsing pep list, sanction list and leaked papers.
     
@@ -25,8 +27,8 @@ class NameMixin:
 
         self._log.info("----------Superclass Parser is initialized----------")
 
-
-    def transliterate(self, value: object) -> str:
+    @staticmethod
+    def transliterate(value: object) -> str:
         """ Normalize person name by applying unicode normalizing(nfkd), transliteration and casefold().
         
         Parameters
@@ -46,7 +48,8 @@ class NameMixin:
             # If value is not a string, return it as is
             return value
     
-    def convert_dob(self, dob: str) -> str:
+    @staticmethod
+    def convert_islamic_to_gregorian(dob: str) -> str:
         """  Convert Islamic year of birth to Gregorian year by adding 579.
 
         Parameters
@@ -73,8 +76,9 @@ class NameMixin:
         
         except ValueError:
             raise ValueError("The input should be a valid string or integer")
-
-    def parse_name(self, value: str) -> str:
+    
+    @staticmethod
+    def parse_name(value: str) -> str:
         """ Parse person name by replacing the given characters with blank.
         
         Parameters
@@ -156,7 +160,7 @@ class Pep(NameMixin):
 
 
         # fix dob for islamic years
-        data_frame["dob"] = data_frame["dob"].apply(self.convert_dob)
+        data_frame["dob"] = data_frame["dob"].apply(self.convert_islamic_to_gregorian)
 
         # TODO: Find a better solution. For the time being mask this entity because dob is not correct.
         data_frame = data_frame.loc[data_frame["dob"]!="1973-09-31", :]
@@ -164,6 +168,7 @@ class Pep(NameMixin):
         data_frame = data_frame.loc[data_frame["dob"]!="2346", :]
         
         # Normalize names
+        #data_frame["person_normalized"] = data_frame["person"].map(self.transliterate)
         data_frame["person_normalized"] = data_frame["person"].map(self.transliterate)
         data_frame["person_normalized"] = data_frame["person_normalized"].map(self.parse_name)
 
@@ -264,7 +269,7 @@ class Sanction(NameMixin):
         sanction_list_np["person_normalized"] = sanction_list_np["person"].map(self.transliterate)
 
         # fix dob for islamic years
-        sanction_list_np["dob"] = sanction_list_np["dob"].apply(self.convert_dob)
+        sanction_list_np["dob"] = sanction_list_np["dob"].apply(self.convert_islamic_to_gregorian)
 
         # drop duplicates: since there is an overlap between the lists
         sanction_list_np.drop_duplicates(inplace=True)
