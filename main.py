@@ -4,7 +4,7 @@ import argparse
 import pandas as pd
 import yaml
 
-from matching import StringMatching
+from matcher import StringMatching
 from parser import Pep, Sanction, LeakedPapers
 
 LOG_FORMAT = "%(asctime)s - %(levelname)s - %(message)s"
