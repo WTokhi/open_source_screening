@@ -1,5 +1,5 @@
 """  Module for parsing names."""
-# system packages
+
 import os
 import json
 import glob

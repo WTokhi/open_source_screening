@@ -1,5 +1,5 @@
-"""  Module for parsing the survey data as a pandas DataFrame"""
-# system packages
+"""  Module for matching names with different methods"""
+
 import os
 import json
 import glob
