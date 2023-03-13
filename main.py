@@ -1,4 +1,5 @@
-"""Module for screening clients."""
+"""Main module for screening clients."""
+
 import logging
 import argparse
 import pandas as pd
