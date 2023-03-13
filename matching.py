@@ -27,9 +27,10 @@ class StringMatching:
         Path to the client data file.
 
     """
-    stop_words = [
-            "limited", "ltd", "incorporated", "inc", "sa"
-        ]
+    STOP_WORDS = [
+        "limited", "ltd",
+        "incorporated", "inc", "sa", "corp", "group", "holdings", "investments", "finance"
+    ]
 
     def __init__(self, client_data_path: str) -> None:
 
@@ -37,18 +38,10 @@ class StringMatching:
 
         self._log.info("----------The StringMatching class is initialized----------")
 
-        # TODO: Why use underscore?
         self._client_data_path: str = client_data_path
 
         self._log.info(f"Received client data input path: {self._client_data_path!r}")
 
-        # TODO: The error handling is not working as it should.
-        # if not os.path.isdir(client_data_path):
-        #     msg = f"Input path does not exists: {client_data_path!r}"
-        #     self._log.error(msg)
-        #     raise FileNotFoundError(msg)
-    
-    #TODO: How to make parameter train_model optional?
     def match_client_data(self, open_source_parsed: pd.DataFrame(), type_screening: str, train_model: bool=True) -> pd.DataFrame:
         """Parses all client csv files from the input path into a DataFrame.
 
@@ -76,23 +69,26 @@ class StringMatching:
         input_data: pd.DataFrame = pd.DataFrame()
         self._type_screening = type_screening
         self._train_model = train_model
+
         try:
-            input_data = pd.read_csv(self._client_data_path, delimiter=";", encoding="utf-8", parse_dates=["client_dob"])
+            input_data = pd.read_csv(self._client_data_path, delimiter="|", encoding="utf-8", parse_dates=["client_dob"])
         except FileNotFoundError as error:
             msg = f"No csv file found in {self._client_data_path!r}."
             self._log.error(msg)
             raise FileNotFoundError(msg) from error
 
+        # TODO: implement try/excpet
         if self._type_screening == "leaked papers":
-            return self._fuzzy_match_at_scale(input_data, open_source_parsed)
+            return self._knn(input_data, open_source_parsed)
         else:
-            return self._fuzzy_match(input_data, open_source_parsed)
+            return self._levenshtein(input_data, open_source_parsed)
 
-    def _fuzzy_match(self, df_client: pd.DataFrame(), df_open_source: pd.DataFrame(), limit: int=2, threshold: int=75) -> pd.DataFrame():
-        """ Fuzzy match client name with names from open source.
+    # TODO: Add docstrings
+    def _levenshtein(self, df_client: pd.DataFrame(), df_open_source: pd.DataFrame(), limit: int=2, threshold: int=75) -> pd.DataFrame():
+        """ Fuzzy match client name with names from open source with levenshtein distance.
 
-            step 1. Match on date fo birth
-            step 2. Match on client lastname and name from open source.
+            step 1. Match on date fo birth to reduce set.
+            step 2. Match on client lastname and complete name from open source.
         
         Parameters
         ----------
@@ -128,7 +124,7 @@ class StringMatching:
         ]).drop_duplicates()
     
         # fuzzy match on lastname and normalized name with .ratio() method
-        merged["match_percentage"] = merged.apply(lambda df: self._string_comparison(df["person_normalized"], df["client_lastname"]), axis="columns")
+        merged["match_percentage"] = merged.apply(lambda df: self._ratio(df["person_normalized"], df["client_lastname"]), axis="columns")
 
         # Aggregate to find the n largest match percentages per client
         aggregated = (
@@ -170,8 +166,7 @@ class StringMatching:
         
         return aggregated
 
-    # knn-tfidf
-    def _fuzzy_match_at_scale(self, test: pd.DataFrame(), train: pd.DataFrame()) -> pd.DataFrame():
+    def _knn(self, test: pd.DataFrame(), train: pd.DataFrame()) -> pd.DataFrame():
 
         self._log.info(f"Vectorizing the data - this could take a few minutes for large datasets.")
 
@@ -189,7 +184,7 @@ class StringMatching:
             
             # Character ngrams with length 3
             analyzer="char_wb",
-            ngram_range=(4,4),
+            ngram_range=(3,3),
             
             # Frequency pruning
             max_df=1.0,
@@ -200,28 +195,23 @@ class StringMatching:
         if self._train_model:
             self._log.info('Getting tfidf matrix.')
 
-            # TODO: train['name'] values are not unique because a name can have more than 1 address. What to do here?
+            # Train['name'] values are not unique because a name can have more than 1 address.
             train_tfidf = vectorizer.fit_transform(train["name"])
 
             self._log.info('Getting nearest neighbours.')
             nbrs = NearestNeighbors(n_neighbors=1, n_jobs=-1).fit(train_tfidf)
 
-            # with open('output/train_tfidf.pickle', 'wb') as f:
-            #     pickle.dump(train_tfidf, f)
             with open('output/vectorizer.pickle', 'wb') as f:
                 pickle.dump(vectorizer, f)
             with open('output/nbrs.pickle', 'wb') as f:
                 pickle.dump(nbrs, f)
         else:
-            with open('output/train_tfidf.pickle', 'rb') as f:
-                train_tfidf = pickle.load(f)
+
             with open('output/nbrs.pickle', 'rb') as f:
                 nbrs = pickle.load(f)
             with open('output/vectorizer.pickle', 'rb') as f:
                 vectorizer = pickle.load(f)
 
-
-        self._log.debug(f"Train_samples: {train_tfidf.shape[0]}, Train_features: {train_tfidf.shape[1]}")
 
         self._log.info('Fitting test data.')
         test_tfidf = vectorizer.transform(test["client_name"])
@@ -230,34 +220,49 @@ class StringMatching:
         self._log.info('Finding matches...')
         matches = []
         for i,j in enumerate(indices):
-            #print(i)
-            #print(j)
-            #print(round(distances[i][0],2))
-            #print(np.array(train["name"][j+1])[0])
-            #print(test["client_name"][i])
-            #print(np.array(test["client_name"][i])[0])
             temp = [
                 j[0], \
-                round(distances[i][0],2), \
-                np.array(train["name"][j+1])[0], \
-                np.array(train["address"][j+1])[0], \
                 test["client_name"][i], \
                 test["client_address"][i], \
-                ]
+                np.array(train["name"][j+1])[0], \
+                np.array(train["address"][j+1])[0], \
+                round(distances[i][0],2), \
+                   ]
             matches.append(temp)
 
-        matches = pd.DataFrame(matches, columns=["index",'Minkowski_score(lower is better)','name', 'address', 'client_name', 'client_address'])
-        #train["levenshtein"] = matches.apply(lambda x: string_comparison(x["address"], x["client_address"]), axis=1)
-       
-        self._log.info('Done')
-        matches.drop_duplicates(inplace=True)
-        matches.sort_values(by="index", ascending=True)
-        print("\n")
-        print(matches)
-        return matches
+        matches = pd.DataFrame(matches, columns=["index",'client_name', 'client_address','lp_name', 'lp_address', 'name_match'])
+        matches["address_match(higher is better)"] = matches.apply(lambda df: self._token_set_ratio(df["lp_address"], df["client_address"]), axis="columns")
 
-    # TODO: This is an static method! 
-    def _string_comparison(self, target: str, source: str) -> int:
+        matches = self._same_address(matches, test)
+        matches.drop_duplicates(inplace=True)
+
+        self._log.info('Done')
+                
+        return matches.sort_values(by="index", ascending=True)
+
+    @staticmethod
+    def _token_set_ratio(value_1: str, value_2: str) -> float:
+        """ This function tokenizes, lowercases, removes punctuations and sorts the strings alphabetically and then joins the two strings with fuzz.ratio(). 
+        
+        Parameters:
+        ----------
+        value_1: string
+            It is address
+        
+        value_2: string
+            It is address
+        
+        Returns:
+        -------
+        Float:
+            Returns a measure of similarity between 0 and 100 bases on Levenstein distance. 
+
+
+        """
+        return fuzz.token_set_ratio(value_1, value_2)
+
+    @staticmethod
+    def _ratio(target: str, source: str) -> int:
         """ Compare the lastname of the client with the different name tokens from the open source data.
         
         Parameters
@@ -282,7 +287,7 @@ class StringMatching:
             vector.append(match)
 
         return max(vector)
-    
+
     def _same_address(self, df_matched: pd.DataFrame, df_client: pd.DataFrame) -> pd.DataFrame:
         """ Extract list of clients with the same address.
         
@@ -312,13 +317,13 @@ class StringMatching:
             suffixes=("", "_y"), 
             how="left"
         )
-
-        # Assign rol -> pep/sanctioned or housemate
+        # Assign rol -> pep/sanctioned/leaked paper or housemate
         df_same_address["client_rol"] = np.where(df_same_address["client_name"]==df_same_address["client_name_y"], self._type_screening, "housemate")
-        df_same_address["match_percentage"] = np.where(df_same_address["client_rol"]!="housemate", df_same_address["match_percentage"], np.nan)
+        df_same_address["name_match(higher is beter)"] = np.where(df_same_address["client_rol"]!="housemate", df_same_address["name_match"], np.nan)
 
         return df_same_address
 
+    # TODO: Add docstrings
     def _preprocessing(self, value):
         
         value = value.lower()
@@ -326,13 +331,15 @@ class StringMatching:
         value = self._remove_stop_words(value)
         return value 
 
+    # TODO: Add docstrings
     @staticmethod
     def _strip_punctuation(value):
         return ''.join(c if c not in string.punctuation else "" for c in value)
 
+    # TODO: Add docstrings
     def _remove_stop_words(self, value):
         return ' '.join([
             word
             for word in value.split()
-            if word not in self.stop_words
+            if word not in self.STOP_WORDS
         ])
