@@ -4,7 +4,7 @@ import argparse
 import pandas as pd
 import yaml
 
-from matcher import StringMatching
+from matcher import NameMatcher
 from parser import Pep, Sanction, LeakedPapers
 
 LOG_FORMAT = "%(asctime)s - %(levelname)s - %(message)s"
@@ -76,20 +76,20 @@ def main(config_path: str) -> None:
         open_source_data_path = config.get("open_source_data_path")
         client_data_path = config.get("client_data_path")
 
-    string_match = StringMatching(client_data_path)
+    string_match = NameMatcher(client_data_path)
 
     try:
         for type_screening in config.get("type_screening"):
             if type_screening == "pep":
                 pep_parser = Pep(open_source_data_path)
                 pep_parsed = pep_parser.pep_parser()
-                pep_matched = string_match.match_client_data(pep_parsed, type_screening)
+                pep_matched = string_match.match_name(pep_parsed, type_screening)
                 pep_matched.to_csv("output/pep_matched.csv")
 
             elif type_screening == "sanction":
                 sanction_parser = Sanction(open_source_data_path)
                 sanction_parsed = sanction_parser.sanction_parser()
-                sanction_matched = string_match.match_client_data(
+                sanction_matched = string_match.match_name(
                     sanction_parsed, type_screening
                 )
                 sanction_matched.to_csv("output/sanction_matched.csv")
@@ -97,7 +97,7 @@ def main(config_path: str) -> None:
             elif type_screening == "leaked papers":
                 leaked_papers_parser = LeakedPapers(open_source_data_path)
                 leaked_papers_parsed = leaked_papers_parser.leaked_papers_parser()
-                leaked_papers_matched = string_match.match_client_data(
+                leaked_papers_matched = string_match.match_name(
                     leaked_papers_parsed, type_screening, config.get("train_model")
                 )
                 leaked_papers_matched.to_csv("output/leaked_papers_matched.csv")
