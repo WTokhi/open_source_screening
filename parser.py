@@ -80,6 +80,7 @@ class NameMixin(ABC):
         except ValueError:
             raise ValueError("The input should be a valid string or integer")
 
+    # TODO: Extend list name.
     @staticmethod
     def parse_name(value: str) -> str:
         """ Parse person name by replacing the given characters with blank.
@@ -115,7 +116,6 @@ class Pep(NameMixin):
             Path to the csv files, there could be more than one file.
 
         """
-        # super().__init__()
 
         self._log = logging.getLogger(__name__)
         self._log.info("----------PEP parser has started----------")
