@@ -19,7 +19,7 @@ from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.neighbors import NearestNeighbors
 
 
-class StringMatching:
+class NameMatcher:
     """ Class for matching client data with  pep list, sanction list and leaked papers.
 
     Parameters
@@ -52,7 +52,7 @@ class StringMatching:
 
         self._log.info(f"Received client data input path: {self._client_data_path!r}")
 
-    def match_client_data(
+    def match_name(
         self,
         open_source_parsed: pd.DataFrame(),
         type_screening: str,
