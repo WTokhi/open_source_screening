@@ -18,6 +18,7 @@ import string
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.neighbors import NearestNeighbors
 
+
 class StringMatching:
     """ Class for matching client data with  pep list, sanction list and leaked papers.
 
@@ -27,9 +28,18 @@ class StringMatching:
         Path to the client data file.
 
     """
+
     STOP_WORDS = [
-        "limited", "ltd",
-        "incorporated", "inc", "sa", "corp", "group", "holdings", "investments", "finance"
+        "limited",
+        "ltd",
+        "incorporated",
+        "inc",
+        "sa",
+        "corp",
+        "group",
+        "holdings",
+        "investments",
+        "finance",
     ]
 
     def __init__(self, client_data_path: str) -> None:
@@ -42,7 +52,12 @@ class StringMatching:
 
         self._log.info(f"Received client data input path: {self._client_data_path!r}")
 
-    def match_client_data(self, open_source_parsed: pd.DataFrame(), type_screening: str, train_model: bool=True) -> pd.DataFrame:
+    def match_client_data(
+        self,
+        open_source_parsed: pd.DataFrame(),
+        type_screening: str,
+        train_model: bool = True,
+    ) -> pd.DataFrame:
         """Parses all client csv files from the input path into a DataFrame.
 
         The main purpose here is to concatenate the open source files and parse the names and date of births. 
@@ -64,14 +79,21 @@ class StringMatching:
         
         """
 
-        self._log.info(f"----------{type_screening.capitalize()} string matching has started----------")
+        self._log.info(
+            f"----------{type_screening.capitalize()} string matching has started----------"
+        )
 
         input_data: pd.DataFrame = pd.DataFrame()
         self._type_screening = type_screening
         self._train_model = train_model
 
         try:
-            input_data = pd.read_csv(self._client_data_path, delimiter="|", encoding="utf-8", parse_dates=["client_dob"])
+            input_data = pd.read_csv(
+                self._client_data_path,
+                delimiter="|",
+                encoding="utf-8",
+                parse_dates=["client_dob"],
+            )
         except FileNotFoundError as error:
             msg = f"No csv file found in {self._client_data_path!r}."
             self._log.error(msg)
@@ -84,7 +106,13 @@ class StringMatching:
             return self._levenshtein(input_data, open_source_parsed)
 
     # TODO: Add docstrings
-    def _levenshtein(self, df_client: pd.DataFrame(), df_open_source: pd.DataFrame(), limit: int=2, threshold: int=75) -> pd.DataFrame():
+    def _levenshtein(
+        self,
+        df_client: pd.DataFrame(),
+        df_open_source: pd.DataFrame(),
+        limit: int = 2,
+        threshold: int = 75,
+    ) -> pd.DataFrame():
         """ Fuzzy match client name with names from open source with levenshtein distance.
 
             step 1. Match on date fo birth to reduce set.
@@ -113,131 +141,154 @@ class StringMatching:
         df_client = df_client.assign(year=lambda x: x.client_dob.dt.year)
 
         # "year" column is filled when "dob" is an int, else empty.
-        df_open_source["year"] = pd.to_numeric(df_open_source["dob"], 'coerce')
+        df_open_source["year"] = pd.to_numeric(df_open_source["dob"], "coerce")
 
-        df_open_source["dob"] = pd.to_datetime(df_open_source["dob"]).where(df_open_source["year"].isna(), other=pd.NaT)
+        df_open_source["dob"] = pd.to_datetime(df_open_source["dob"]).where(
+            df_open_source["year"].isna(), other=pd.NaT
+        )
 
         # DOB matching: Union- merge rows on year OR datetime
-        merged = pd.concat([
-            df_client.merge(df_open_source, how="inner", on="year"),
-            df_client.merge(df_open_source.drop(columns=["year"]), how="inner", left_on="client_dob", right_on="dob")
-        ]).drop_duplicates()
-    
+        merged = pd.concat(
+            [
+                df_client.merge(df_open_source, how="inner", on="year"),
+                df_client.merge(
+                    df_open_source.drop(columns=["year"]),
+                    how="inner",
+                    left_on="client_dob",
+                    right_on="dob",
+                ),
+            ]
+        ).drop_duplicates()
+
         # fuzzy match on lastname and normalized name with .ratio() method
-        merged["match_percentage"] = merged.apply(lambda df: self._ratio(df["person_normalized"], df["client_lastname"]), axis="columns")
+        merged["match_percentage"] = merged.apply(
+            lambda df: self._ratio(df["person_normalized"], df["client_lastname"]),
+            axis="columns",
+        )
 
         # Aggregate to find the n largest match percentages per client
         aggregated = (
-            merged
-            .query(f"match_percentage >= {threshold}")
-            .drop(columns=['year'])
+            merged.query(f"match_percentage >= {threshold}")
+            .drop(columns=["year"])
             .groupby(["client_name", "client_dob"])
-            .apply(lambda grp: grp.nlargest(limit, 'match_percentage'))
+            .apply(lambda grp: grp.nlargest(limit, "match_percentage"))
             .reset_index(drop=True)
         )
 
         aggregated = self._same_address(aggregated, df_client)
 
         columns = [
-            'client_name_y', 
-            'client_lastname_y',
-            'client_dob_y',
-            'client_address',
-            'client_rol',
-            'date_start',
-            'date_end',
-            'match_percentage' 
-            ]
+            "client_name_y",
+            "client_lastname_y",
+            "client_dob_y",
+            "client_address",
+            "client_rol",
+            "date_start",
+            "date_end",
+            "match_percentage",
+        ]
 
         aggregated = aggregated[columns]
-        
-        aggregated.rename(columns={
-            "client_name_y":"client_name",\
-            'client_lastname_y': "client_lastname",
-            "client_dob_y":"client_dob",
-            'date_start': "start_date",
-            'date_end': "end_date"
-            }, inplace=True)
 
-        nb_housemates = aggregated.loc[aggregated['client_rol']=="housemate",:].shape[0]
+        aggregated.rename(
+            columns={
+                "client_name_y": "client_name",
+                "client_lastname_y": "client_lastname",
+                "client_dob_y": "client_dob",
+                "date_start": "start_date",
+                "date_end": "end_date",
+            },
+            inplace=True,
+        )
+
+        nb_housemates = aggregated.loc[
+            aggregated["client_rol"] == "housemate", :
+        ].shape[0]
 
         self._log.debug(f"Number of potential hits: {aggregated.shape[0]}")
         self._log.debug(f"Number of housemates: {nb_housemates}")
-        
+
         return aggregated
 
     def _knn(self, test: pd.DataFrame(), train: pd.DataFrame()) -> pd.DataFrame():
 
-        self._log.info(f"Vectorizing the data - this could take a few minutes for large datasets.")
+        self._log.info(
+            f"Vectorizing the data - this could take a few minutes for large datasets."
+        )
 
-        
         vectorizer = TfidfVectorizer(
-            
             # Decode the data
-            encoding = "utf-8",
-            
+            encoding="utf-8",
             # Remove accents and perform NFKD character normalization
-            strip_accents = "unicode",
-
+            strip_accents="unicode",
             # Preprocessing options.
-            preprocessor= self._preprocessing,
-            
+            preprocessor=self._preprocessing,
             # Character ngrams with length 3
             analyzer="char_wb",
-            ngram_range=(3,3),
-            
+            ngram_range=(3, 3),
             # Frequency pruning
             max_df=1.0,
             min_df=1,
-
-            )
+        )
 
         if self._train_model:
-            self._log.info('Getting tfidf matrix.')
+            self._log.info("Getting tfidf matrix.")
 
             # Train['name'] values are not unique because a name can have more than 1 address.
             train_tfidf = vectorizer.fit_transform(train["name"])
 
-            self._log.info('Getting nearest neighbours.')
+            self._log.info("Getting nearest neighbours.")
             nbrs = NearestNeighbors(n_neighbors=1, n_jobs=-1).fit(train_tfidf)
 
-            with open('output/vectorizer.pickle', 'wb') as f:
+            with open("output/vectorizer.pickle", "wb") as f:
                 pickle.dump(vectorizer, f)
-            with open('output/nbrs.pickle', 'wb') as f:
+            with open("output/nbrs.pickle", "wb") as f:
                 pickle.dump(nbrs, f)
         else:
 
-            with open('output/nbrs.pickle', 'rb') as f:
+            with open("output/nbrs.pickle", "rb") as f:
                 nbrs = pickle.load(f)
-            with open('output/vectorizer.pickle', 'rb') as f:
+            with open("output/vectorizer.pickle", "rb") as f:
                 vectorizer = pickle.load(f)
 
-
-        self._log.info('Fitting test data.')
+        self._log.info("Fitting test data.")
         test_tfidf = vectorizer.transform(test["client_name"])
         distances, indices = nbrs.kneighbors(test_tfidf)
 
-        self._log.info('Finding matches...')
+        self._log.info("Finding matches...")
         matches = []
-        for i,j in enumerate(indices):
+        for i, j in enumerate(indices):
             temp = [
-                j[0], \
-                test["client_name"][i], \
-                test["client_address"][i], \
-                np.array(train["name"][j+1])[0], \
-                np.array(train["address"][j+1])[0], \
-                round(distances[i][0],2), \
-                   ]
+                j[0],
+                test["client_name"][i],
+                test["client_address"][i],
+                np.array(train["name"][j + 1])[0],
+                np.array(train["address"][j + 1])[0],
+                round(distances[i][0], 2),
+            ]
             matches.append(temp)
 
-        matches = pd.DataFrame(matches, columns=["index",'client_name', 'client_address','lp_name', 'lp_address', 'name_match'])
-        matches["address_match(higher is better)"] = matches.apply(lambda df: self._token_set_ratio(df["lp_address"], df["client_address"]), axis="columns")
+        matches = pd.DataFrame(
+            matches,
+            columns=[
+                "index",
+                "client_name",
+                "client_address",
+                "lp_name",
+                "lp_address",
+                "name_match",
+            ],
+        )
+        matches["address_match(higher is better)"] = matches.apply(
+            lambda df: self._token_set_ratio(df["lp_address"], df["client_address"]),
+            axis="columns",
+        )
 
         matches = self._same_address(matches, test)
         matches.drop_duplicates(inplace=True)
 
-        self._log.info('Done')
-                
+        self._log.info("Done")
+
         return matches.sort_values(by="index", ascending=True)
 
     @staticmethod
@@ -283,12 +334,14 @@ class StringMatching:
         vector = []
 
         for _, token in enumerate(target):
-            match = fuzz.ratio(source, token)  
+            match = fuzz.ratio(source, token)
             vector.append(match)
 
         return max(vector)
 
-    def _same_address(self, df_matched: pd.DataFrame, df_client: pd.DataFrame) -> pd.DataFrame:
+    def _same_address(
+        self, df_matched: pd.DataFrame, df_client: pd.DataFrame
+    ) -> pd.DataFrame:
         """ Extract list of clients with the same address.
         
             For clients who have a string similarity score above 
@@ -310,36 +363,40 @@ class StringMatching:
         """
 
         df_same_address = df_matched.merge(
-            df_client, 
-            left_on=["client_address"], 
-            right_on=["client_address"], 
-            validate="m:m", 
-            suffixes=("", "_y"), 
-            how="left"
+            df_client,
+            left_on=["client_address"],
+            right_on=["client_address"],
+            validate="m:m",
+            suffixes=("", "_y"),
+            how="left",
         )
         # Assign rol -> pep/sanctioned/leaked paper or housemate
-        df_same_address["client_rol"] = np.where(df_same_address["client_name"]==df_same_address["client_name_y"], self._type_screening, "housemate")
-        df_same_address["name_match(higher is beter)"] = np.where(df_same_address["client_rol"]!="housemate", df_same_address["name_match"], np.nan)
+        df_same_address["client_rol"] = np.where(
+            df_same_address["client_name"] == df_same_address["client_name_y"],
+            self._type_screening,
+            "housemate",
+        )
+        df_same_address["name_match(higher is beter)"] = np.where(
+            df_same_address["client_rol"] != "housemate",
+            df_same_address["name_match"],
+            np.nan,
+        )
 
         return df_same_address
 
     # TODO: Add docstrings
     def _preprocessing(self, value):
-        
+
         value = value.lower()
         value = self._strip_punctuation(value)
         value = self._remove_stop_words(value)
-        return value 
+        return value
 
     # TODO: Add docstrings
     @staticmethod
     def _strip_punctuation(value):
-        return ''.join(c if c not in string.punctuation else "" for c in value)
+        return "".join(c if c not in string.punctuation else "" for c in value)
 
     # TODO: Add docstrings
     def _remove_stop_words(self, value):
-        return ' '.join([
-            word
-            for word in value.split()
-            if word not in self.STOP_WORDS
-        ])
+        return " ".join([word for word in value.split() if word not in self.STOP_WORDS])
