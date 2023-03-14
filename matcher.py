@@ -60,7 +60,7 @@ class NameMatcher:
     ) -> pd.DataFrame:
         """Parses all client csv files from the input path into a DataFrame.
 
-        The main purpose here is to concatenate the open source files and parse the names and date of births. 
+        The main purpose here is to concatenate the open source files and parse the names and date of births.
         That is normalize(nfkd), transliterate and casefold the names of all entities. The results are
         returned as a pandas.DataFrame.
 
@@ -76,7 +76,7 @@ class NameMatcher:
         -------
         pandas.DataFrame
             DataFrame containing clients where a match is found in the open source dataset.
-        
+
         """
 
         self._log.info(
@@ -115,17 +115,17 @@ class NameMatcher:
     ) -> pd.DataFrame():
         """ Fuzzy match client name with names from open source with levenshtein distance.
 
-            step 1. Match on date fo birth to reduce set.
-            step 2. Match on client lastname and complete name from open source.
-        
+            Step 1. Match on date fo birth to reduce set.
+            Step 2. Match on client lastname and complete name from open source.
+
         Parameters
         ----------
         df_client: pd.DataFrame()
-            Contains information with respect to clients. 
-        
+            Contains information with respect to clients.
+
         df_open_source: pd.DataFrame()
             Could be pep list or sanction list.
-        
+
         limit: int
             .....
 
@@ -135,7 +135,7 @@ class NameMatcher:
         Returns
         -------
         pd.DataFrame()
-            ...... 
+            ......
         """
 
         df_client = df_client.assign(year=lambda x: x.client_dob.dt.year)
@@ -293,20 +293,20 @@ class NameMatcher:
 
     @staticmethod
     def _token_set_ratio(value_1: str, value_2: str) -> float:
-        """ This function tokenizes, lowercases, removes punctuations and sorts the strings alphabetically and then joins the two strings with fuzz.ratio(). 
-        
+        """ This function tokenizes, lowercases, removes punctuations and sorts the strings alphabetically and then joins the two strings with fuzz.ratio().
+
         Parameters:
         ----------
         value_1: string
             It is address
-        
+
         value_2: string
             It is address
-        
+
         Returns:
         -------
         Float:
-            Returns a measure of similarity between 0 and 100 bases on Levenstein distance. 
+            Returns a measure of similarity between 0 and 100 bases on Levenstein distance.
 
 
         """
@@ -315,19 +315,19 @@ class NameMatcher:
     @staticmethod
     def _ratio(target: str, source: str) -> int:
         """ Compare the lastname of the client with the different name tokens from the open source data.
-        
+
         Parameters
         ----------
         target: string
-            Is client name. 
-        
+            Is client name.
+
         source: string
             Complete name from the open source data.
 
         Returns
         -------
         integer
-            Returns a measure of the sequence similarity between 0 and 100. 
+            Returns a measure of the sequence similarity between 0 and 100.
         """
 
         target = target.split()
@@ -343,19 +343,19 @@ class NameMatcher:
         self, df_matched: pd.DataFrame, df_client: pd.DataFrame
     ) -> pd.DataFrame:
         """ Extract list of clients with the same address.
-        
-            For clients who have a string similarity score above 
-            a certain threshold check whether other clients are also registered 
+
+            For clients who have a string similarity score above
+            a certain threshold check whether other clients are also registered
             at the same address.
-        
+
         Parameters
         ----------
         df_matched: pandas.DataFrame
             Is a pandas.DataFrame where client information (last name and dob) is already matched with open source entities.
-        
+
         df_client: pandas.DataFrame
             Is a pandas.DataFrame where client information is found such as address.
-        
+
         Returns
         -------
         pandas.DataFrame
