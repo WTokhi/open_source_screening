@@ -13,7 +13,7 @@ LOG_LEVELS = "debug", "info", "warning", "error", "critical"
 
 
 def load_config(config_path: str) -> dict:
-    """Load params.yml and return dictionary with class input parameters
+    """Load params.yml and return dictionary with class input parameters.
     Parameters
     ----------
     input_path: str
