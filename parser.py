@@ -17,9 +17,9 @@ from abc import ABC
 
 
 class NameMixin(ABC):
-    """ 
+    """
     Superclass for parsing pep list, sanction list and leaked papers.
-    
+
     """
 
     def __init__(self) -> None:
@@ -33,22 +33,22 @@ class NameMixin(ABC):
     @staticmethod
     def transliterate(value: object) -> str:
         """ Normalize person name by applying unicode normalizing(nfkd), transliteration and casefold().
-        
+
         Parameters
         ----------
         value: object
-            person name 
+            person name
 
         Returns
         -------
         object
-            value normalized to letters between a and z. 
+            value normalized to letters between a and z.
         """
 
         try:
             return unidecode.unidecode(value).casefold()
         except TypeError:
-            # If value is not a string, return it as is
+            # If value is not a string, return it as is.
             return value
 
     @staticmethod
@@ -84,11 +84,11 @@ class NameMixin(ABC):
     @staticmethod
     def parse_name(value: str) -> str:
         """ Parse person name by replacing the given characters with blank.
-        
+
         Parameters
         ----------
         dob: object
-            person name 
+            person name
 
         Returns
         -------
@@ -139,7 +139,7 @@ class Pep(NameMixin):
         self._input_data = input_data
 
     def pep_parser(self) -> pd.DataFrame():
-        """ The main purpose here is to normalize(nfkd), transliterate and casefold the 
+        """ The main purpose here is to normalize(nfkd), transliterate and casefold the
         names of all entities. The results are returned as a pandas.DataFrame().
 
         Returns
@@ -208,7 +208,7 @@ class Sanction(NameMixin):
     """ Subclass for parsing sanction lists."""
 
     def __init__(self, input_path: str) -> None:
-        """The main purpose here is to concatenate the sanction files. 
+        """The main purpose here is to concatenate the sanction files.
 
         Parameters
         ----------
@@ -240,7 +240,7 @@ class Sanction(NameMixin):
         self._input_data = input_data
 
     def sanction_parser(self) -> pd.DataFrame:
-        """ The main purpose here is to normalize(nfkd), transliterate and casefold the 
+        """ The main purpose here is to normalize(nfkd), transliterate and casefold the
         names of all entities. The results are returned as a pandas.DataFrame().
 
         Returns
@@ -392,7 +392,7 @@ class LeakedPapers(NameMixin):
                 )
 
     def leaked_papers_parser(self) -> pd.DataFrame:
-        """ The main purpose here is to normalize(nfkd), transliterate and casefold the 
+        """ The main purpose here is to normalize(nfkd), transliterate and casefold the
         names of all entities. The results are returned as a pandas.DataFrame().
 
 
@@ -400,7 +400,7 @@ class LeakedPapers(NameMixin):
         -------
         pandas.DataFrame
             DataFrame containing normalized names and parsed date of births.
-        
+
         """
         self._log = logging.getLogger(__name__)
 
