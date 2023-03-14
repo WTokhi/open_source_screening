@@ -113,7 +113,7 @@ class NameMatcher:
         limit: int = 2,
         threshold: int = 75,
     ) -> pd.DataFrame():
-        """ Fuzzy match client name with names from open source with levenshtein distance.
+        """ Fuzzy match client name using names from open source with levenshtein distance.
 
             Step 1. Match on date fo birth to reduce set.
             Step 2. Match on client lastname and complete name from open source.
