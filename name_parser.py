@@ -1,51 +1,45 @@
 """  Module for parsing names."""
 
 import os
-import json
 import glob
 import logging
-
-import datetime as dt
-
-import pandas as pd
-import numpy as np
-
-import unicodedata
 import unidecode
 
 from abc import ABC
 
+import pandas as pd
+import numpy as np
+
 
 class NameMixin(ABC):
-    """
-    Superclass for parsing pep list, sanction list and leaked papers.
+    """Mixin for parsing names from PEP and sanction lists or leaked papers."""
 
-    """
-
+    # LK: Persoonlijk zou ik geen logger op een mixin zetten.
+    # LK: Laat de classes zelf maar loggers maken met de correcte naam.
+    # LK: Deze __init__ kan dan helemaal weg.
     def __init__(self) -> None:
-
         self._log = logging.getLogger(__name__)
-
-        self._log.warning(
+        self._log.info(
             "----------Abstract baseclass `NameMixin` is initialized.----------"
         )
 
     @staticmethod
     def transliterate(value: object) -> str:
-        """ Normalize person name by applying unicode normalizing(nfkd), transliteration and casefold().
+        """Normalize name and apply transliteration and case folding.
 
         Parameters
         ----------
-        value: object
-            person name
+        value: str
+            Name as string value.
 
         Returns
         -------
-        object
-            value normalized to letters between a and z.
+        str
+            Normalized name.
         """
 
         try:
+            # LK: Waarom extern package en niet gewoon unicodedata?
             return unidecode.unidecode(value).casefold()
         except TypeError:
             # If value is not a string, return it as is.
@@ -53,7 +47,7 @@ class NameMixin(ABC):
 
     @staticmethod
     def convert_islamic_to_gregorian(dob: str) -> str:
-        """  Convert Islamic year of birth to Gregorian year by adding 579.
+        """Convert Islamic date of birth to Gregorian date.
 
         Parameters
         ----------
@@ -63,8 +57,10 @@ class NameMixin(ABC):
         Returns
         -------
         str
-            Year of birth in Gregorian year.
+            Date of birth in Gregorian year.
         """
+        # LK: Datum en jaar lopen beetje door elkaar; wat wil je doen?
+        # LK: Op zich niet zoveel moeite om jaar uit een datum te plukken toch?
         try:
             dob = str(dob)
 
@@ -81,65 +77,71 @@ class NameMixin(ABC):
             raise ValueError("The input should be a valid string or integer")
 
     # TODO: Extend list name.
+    # LK: clean_name / prune_name zou ik betere benaming vinden.
     @staticmethod
     def parse_name(value: str) -> str:
-        """ Parse person name by replacing the given characters with blank.
+        """Parse person name by replacing the given characters with blank.
 
         Parameters
         ----------
-        dob: object
-            person name
+        value: str
+            Name as string.
 
         Returns
         -------
-        object
-            parsed string
+        str
+            Cleansed name.
         """
         try:
-            for name in ["@", "iii", "jr.", "sr.", "Sir", "Lord"]:
-                value = value.replace(name, "")
+            # LK: "Dhr.", "Mevr." etc? En misschien nog strip() op het resultaat?
+            for clean in ["@", "iii", "jr.", "sr.", "Sir", "Lord"]:
+                value = value.replace(clean, "")
             return value
         except TypeError:
+            # LK: Misschien beter om deze check / conversie centraal te maken?
             # If value is not a string, return it as is
             return value
 
 
 class Pep(NameMixin):
-    """ Subclass for parsing pep lists."""
+    """Subclass for parsing PEP lists.
+
+    Note: Loads PEP lists provided as CSV file(s). If there are
+    multiple CSV files, they will be combined into a single data
+    set.
+
+    Parameters
+    ----------
+    input_path: str
+        Path to one or more CSV files.
+    """
 
     def __init__(self, input_path: str) -> None:
-        """ All of the pep files are concatonatd.
-
-        Parameters
-        ----------
-        input_path: str
-            Path to the csv files, there could be more than one file.
-
-        """
-
         self._log = logging.getLogger(__name__)
         self._log.info("----------PEP parser has started----------")
-        self._input_path = input_path
-        input_data: pd.DataFrame = pd.DataFrame()
 
-        csv_files: list = glob.glob(os.path.join(self._input_path + "/pep", "*.csv"))
-
+        csv_files = glob.glob(os.path.join(input_path + "/pep", "*.csv"))
         if not csv_files:
-            msg = f"No csv files found in {self._input_path!r}."
+            msg = f"No PEP CSV files found in {self._input_path!r}."
             self._log.error(msg)
             raise FileNotFoundError(msg)
 
+        input_data = []
         for csv_path in csv_files:
             try:
-                load_data = pd.read_csv(csv_path, delimiter=",", encoding="utf-8")
-                input_data = pd.concat([input_data, load_data], axis=0)
+                input_data.append(
+                    pd.read_csv(csv_path, delimiter=",", encoding="utf-8")
+                )
+            # LK: Deze fouten kunnen hier niet optreden toch?
             except (KeyError, ValueError, RuntimeError) as error:
                 msg = f"Error parsing file {csv_path!r}: {error!r}."
                 self._log.error(msg)
-        self._input_data = input_data
 
+        self._input_data = pd.concat(input_data, axis=0)
+
+    # LK: Vat de functie samen op de eerste regel (dus in 1 regel).
     def pep_parser(self) -> pd.DataFrame():
-        """ The main purpose here is to normalize(nfkd), transliterate and casefold the
+        """The main purpose here is to normalize(nfkd), transliterate and casefold the
         names of all entities. The results are returned as a pandas.DataFrame().
 
         Returns
@@ -205,7 +207,7 @@ class Pep(NameMixin):
 
 
 class Sanction(NameMixin):
-    """ Subclass for parsing sanction lists."""
+    """Subclass for parsing sanction lists."""
 
     def __init__(self, input_path: str) -> None:
         """The main purpose here is to concatenate the sanction files.
@@ -240,7 +242,7 @@ class Sanction(NameMixin):
         self._input_data = input_data
 
     def sanction_parser(self) -> pd.DataFrame:
-        """ The main purpose here is to normalize(nfkd), transliterate and casefold the
+        """The main purpose here is to normalize(nfkd), transliterate and casefold the
         names of all entities. The results are returned as a pandas.DataFrame().
 
         Returns
@@ -325,10 +327,10 @@ class Sanction(NameMixin):
 
 
 class LeakedPapers(NameMixin):
-    """ Subclass for parsing leaked papers."""
+    """Subclass for parsing leaked papers."""
 
     def __init__(self, input_path: str) -> None:
-        """ Read data: officers, entities, relationships and addresses.
+        """Read data: officers, entities, relationships and addresses.
 
         Parameters
         ----------
@@ -392,7 +394,7 @@ class LeakedPapers(NameMixin):
                 )
 
     def leaked_papers_parser(self) -> pd.DataFrame:
-        """ The main purpose here is to normalize(nfkd), transliterate and casefold the
+        """The main purpose here is to normalize(nfkd), transliterate and casefold the
         names of all entities. The results are returned as a pandas.DataFrame().
 
 

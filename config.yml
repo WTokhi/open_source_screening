@@ -3,7 +3,10 @@ client_data_path: input/client/client_data.csv
 open_source_data_path: input/open_source
 
 # type of screening: "pep", "sanction", "leaked papers"
-type_screening: ["pep"]
+type_screening:
+  - pep
+  # - sanction
+  # - leaked papers
 
 # train new model for tfidf-knn.
 train_model: false
