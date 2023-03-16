@@ -132,7 +132,7 @@ class Pep(NameMixin):
                 input_data.append(
                     pd.read_csv(csv_path, delimiter=",", encoding="utf-8")
                 )
-            # LK: Deze fouten kunnen hier niet optreden toch?
+            # LK: Deze fouten kunnen hier eigenlijk niet optreden toch?
             except (KeyError, ValueError, RuntimeError) as error:
                 msg = f"Error parsing file {csv_path!r}: {error!r}."
                 self._log.error(msg)
@@ -140,6 +140,8 @@ class Pep(NameMixin):
         self._input_data = pd.concat(input_data, axis=0)
 
     # LK: Vat de functie samen op de eerste regel (dus in 1 regel).
+    # LK: Als dat lastig blijkt is het vaak een teken dat de functie teveel doet.
+    # LK: Het bundelen/afscheiden van alle DOB bewerkingen zou een begin kunnen zijn?
     def pep_parser(self) -> pd.DataFrame():
         """The main purpose here is to normalize(nfkd), transliterate and casefold the
         names of all entities. The results are returned as a pandas.DataFrame().
@@ -163,8 +165,7 @@ class Pep(NameMixin):
         )
 
         # Remove entries with missing dob and start date
-        data_frame = data_frame.dropna(subset=["dob"])
-        data_frame = data_frame.dropna(subset=["date_start"])
+        data_frame = data_frame.dropna(subset=["dob", "date_start"])
 
         # Select entries where length dob is greater than 3
         data_frame = data_frame.loc[data_frame["dob"].str.len() > 3, :]
@@ -178,24 +179,27 @@ class Pep(NameMixin):
         data_frame["dob"] = data_frame["dob"].apply(self.convert_islamic_to_gregorian)
 
         # TODO: Find a better solution. For the time being mask this entity because dob is not correct.
-        data_frame = data_frame.loc[data_frame["dob"] != "1973-09-31", :]
-        data_frame = data_frame.loc[data_frame["dob"] != "1951-06-31", :]
-        data_frame = data_frame.loc[data_frame["dob"] != "2346", :]
+        data_frame = data_frame[
+            ~data_frame["dob"].isin(("1973-09-31", "1951-06-31", "2346"))
+        ]
 
         # Normalize names
-        # data_frame["person_normalized"] = data_frame["person"].map(self.transliterate)
-        data_frame["person_normalized"] = data_frame["person"].map(self.transliterate)
-        data_frame["person_normalized"] = data_frame["person_normalized"].map(
-            self.parse_name
+        data_frame = data_frame.assign(
+            person_normalized=lambda df: df["person"]
+            .map(self.transliterate)
+            .map(self.parse_name)
         )
 
-        # drop duplicates
+        # Drop duplicates
+        # LK: Doe je dat hier omdat normalisatie duplicaten oplevert?
+        # LK: Op zich is zo vroeg mogelijk droppen efficienter.
         data_frame.drop_duplicates(inplace=True)
 
-        # insert index
-        item_list = list(range(1, data_frame.shape[0] + 1))
-        data_frame.index = ["pep_" + str(item) for item in item_list]
-        data_frame.index.name = "index"
+        # Insert index
+        # LK: Waar is dit goed voor?
+        data_frame.index = pd.Index(
+            [f"pep_{idx + 1}" for idx in data_frame.index], name="index"
+        )
 
         self._log.debug(f"Number of unique persons : {data_frame['person'].nunique()}")
         self._log.debug(
@@ -207,24 +211,22 @@ class Pep(NameMixin):
 
 
 class Sanction(NameMixin):
-    """Subclass for parsing sanction lists."""
+    """Subclass for parsing sanction lists.
+
+    Parameters
+    ----------
+    input_path: str
+        Path to one or more the CSV files with sanctioned names.
+    """
 
     def __init__(self, input_path: str) -> None:
-        """The main purpose here is to concatenate the sanction files.
-
-        Parameters
-        ----------
-        input_path: str
-            Path to the csv files, there could be more than one file.
-
-        """
         self._log = logging.getLogger(__name__)
         self._log.info("----------Sanction class is initialized----------")
 
-        input_data: pd.DataFrame = pd.DataFrame()
-        csv_files: list = glob.glob(
-            os.path.join(input_path + "/sanction_lists", "*.csv")
-        )
+        # LK: Eigenlijk gebeurt hier hetzelfde als de vorige class...
+        # LK: Gedeelde __init__ in een base class een optie?
+        input_data = pd.DataFrame()
+        csv_files = glob.glob(os.path.join(input_path + "/sanction_lists", "*.csv"))
 
         if not csv_files:
             msg = f"No csv files found in {input_path!r}."
@@ -241,6 +243,7 @@ class Sanction(NameMixin):
 
         self._input_data = input_data
 
+    # LK: Vergelijkbaar met vorige class; er gebeurt hier veel...
     def sanction_parser(self) -> pd.DataFrame:
         """The main purpose here is to normalize(nfkd), transliterate and casefold the
         names of all entities. The results are returned as a pandas.DataFrame().
@@ -253,12 +256,16 @@ class Sanction(NameMixin):
 
         self._log.info("----------Sanction list parser has started----------")
 
+        # LK: LET OP: Dit maakt alleen een referentie aan (want mutable object)!
+        # LK: De drop_duplicates hieronder wijzigt dus ook self._input_data.
         sanction_list = self._input_data
 
         # Drop duplicates because the sanctions list can contain same entities
         sanction_list.drop_duplicates(inplace=True)
 
         # Select persons
+        # LK: Je kunt DataFrame methods ook "chainen" he...
+        # LK: Je hebt nu namelijk een hele hoop losse regels
         sanction_list_np = sanction_list.loc[
             sanction_list["schema"] == "Person",
             ["schema", "name", "birth_date", "countries", "sanctions", "dataset"],
@@ -274,14 +281,13 @@ class Sanction(NameMixin):
         sanction_list_np["name"] = sanction_list_np["name"].str.lower()
 
         # Extract dob. Persons with multiple date of birth are regarded as different entity
-        sanction_list_np["birth_date_fixed"] = sanction_list_np.loc[
-            :, "birth_date"
-        ].str.split(";")
-        sanction_list_np = sanction_list_np.explode("birth_date_fixed")
+        sanction_list_np["birth_date_fixed"] = (
+            sanction_list_np["birth_date"].str.split(";").explode("birth_date_fixed")
+        )
 
         # Extract sanction start date
         sanction_list_np["date_start"] = (
-            sanction_list_np.loc[:, "sanctions"].str.split(" ").str[-1]
+            sanction_list_np["sanctions"].str.split(" ").str[-1]
         )
 
         sanction_list_np["date_end"] = np.nan
@@ -307,12 +313,22 @@ class Sanction(NameMixin):
         )
 
         # fix dob for islamic years
-        sanction_list_np["dob"] = sanction_list_np["dob"].apply(
+        sanction_list_np["dob"] = sanction_list_np["dob"].map(
             self.convert_islamic_to_gregorian
         )
 
         # drop duplicates: since there is an overlap between the lists
         sanction_list_np.drop_duplicates(inplace=True)
+
+        # LK: Kan wel compacter met chaining:
+        # sanction_list_np = (
+        #     sanction_list_np
+        #     .assign(
+        #         person_normalized=lambda df: df["person"].map(self.transliterate),
+        #         dob=lambda df: df["dob"].map(self.convert_islamic_to_gregorian),
+        #     )
+        #     .drop_duplicates()
+        # )
 
         # check results
         self._log.debug(
@@ -338,9 +354,37 @@ class LeakedPapers(NameMixin):
             Path to the csv files, there could be more than one file.
 
         """
-        csv_files: list = glob.glob(
-            os.path.join(input_path + "/leaked_papers", "*.csv")
-        )
+        # Dit kan veel compacter met een dicts
+        # self._datasets = {}
+        # file_specs = {
+        #     "nodes-officers": ["node_id", "name", "sourceID"],
+        #     "nodes-addresses": ["node_id", "address", "countries"],
+        #     "nodes-entities": [
+        #         "node_id",
+        #         "name",
+        #         "incorporation_date",
+        #         "inactivation_date",
+        #     ],
+        #     "relationshisps": [
+        #             "node_id_start",
+        #             "node_id_end",
+        #             "rel_type",
+        #             "link",
+        #             "start_date",
+        #             "end_date",
+        #         ]
+        # }
+        # for dataset, columns in file_specs.items():
+        #     csv_file = os.path.join(input_path + "leaked_papers", f"{dataset}.csv")
+        #     self._datasets[dataset] = pd.read_csv(
+        #         csv_file,
+        #         delimiter=",",
+        #         encoding="utf-8",
+        #         usecols=columns,
+        #         low_memory=False,
+        #     )
+
+        csv_files = glob.glob(os.path.join(input_path + "/leaked_papers", "*.csv"))
 
         if not csv_files:
             msg = f"No csv files found in {input_path!r}."
@@ -404,11 +448,13 @@ class LeakedPapers(NameMixin):
             DataFrame containing normalized names and parsed date of births.
 
         """
+        # LK: Consistentie; logging opzetten in de __init__
         self._log = logging.getLogger(__name__)
 
         self._log.info("----------Leaked Papers parser has started----------")
 
         # Get the address of the officers.
+        # LK: Of officers.merge(relationships, ...).merge(address, ...)
         officer_address = pd.merge(
             self._officers,
             self._relationships,
@@ -424,12 +470,14 @@ class LeakedPapers(NameMixin):
             how="inner",
         )
 
+        # LK: Is een drop(columns=...) niet eenvoudiger?
         col_source = list(self._officers.columns)
         col_address = ["address", "countries"]
         officer_address = officer_address.loc[
             officer_address["address"].notna(), col_source + col_address
         ]
 
+        # LK: Method chaining...
         officer_address["name"] = (
             officer_address["name"].apply(str).map(self.transliterate)
         )
@@ -450,6 +498,8 @@ class LeakedPapers(NameMixin):
             suffixes=("", "_entity"),
             how="inner",
         )
+
+        # LK: Waarom niet meteen selectie hier maken?
         cols = [
             "node_id",
             "name",
@@ -471,6 +521,7 @@ class LeakedPapers(NameMixin):
         self._log.debug(
             f"Number of unique countries : {officer_address_entity['countries'].nunique()}"
         )
+        # LK: Kolom selectie veranderd niks aan deze output ;-)
         self._log.debug(f"Number of rows : {officer_address_entity[cols].shape[0]}")
 
         return officer_address_entity[cols]

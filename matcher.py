@@ -1,32 +1,24 @@
 """  Module for matching names with different methods"""
-
-import os
-import json
-import glob
 import logging
 import pickle
-
-import datetime as dt
-
-import pandas as pd
-import numpy as np
-import unicodedata
-from fuzzywuzzy import fuzz
 import string
 
+import numpy as np
+import pandas as pd
+
+from fuzzywuzzy import fuzz
 
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.neighbors import NearestNeighbors
 
 
 class NameMatcher:
-    """ Class for matching client data with  pep list, sanction list and leaked papers.
+    """Class for matching client data with pep list, sanction list and leaked papers.
 
     Parameters
     -----------
     client_data_path: str
         Path to the client data file.
-
     """
 
     STOP_WORDS = [
@@ -43,14 +35,11 @@ class NameMatcher:
     ]
 
     def __init__(self, client_data_path: str) -> None:
-
         self._log = logging.getLogger(__name__)
-
         self._log.info("----------The StringMatching class is initialized----------")
 
-        self._client_data_path: str = client_data_path
-
-        self._log.info(f"Received client data input path: {self._client_data_path!r}")
+        self._log.info(f"Using client data path: {client_data_path!r}")
+        self._client_data_path = client_data_path
 
     def match_name(
         self,
@@ -60,9 +49,10 @@ class NameMatcher:
     ) -> pd.DataFrame:
         """Parses all client csv files from the input path into a DataFrame.
 
-        The main purpose here is to concatenate the open source files and parse the names and date of births.
-        That is normalize(nfkd), transliterate and casefold the names of all entities. The results are
-        returned as a pandas.DataFrame.
+        The main purpose here is to concatenate the open source files and parse
+        the names and date of births. That is normalize(nfkd), transliterate and
+        casefold the names of all entities. The results are returned as a
+        pandas.DataFrame.
 
         Parameters
         ----------
@@ -75,15 +65,15 @@ class NameMatcher:
         Returns
         -------
         pandas.DataFrame
-            DataFrame containing clients where a match is found in the open source dataset.
+            DataFrame containing names matching the open source dataset.
 
         """
-
         self._log.info(
             f"----------{type_screening.capitalize()} string matching has started----------"
         )
 
-        input_data: pd.DataFrame = pd.DataFrame()
+        input_data = pd.DataFrame()
+
         self._type_screening = type_screening
         self._train_model = train_model
 
@@ -113,7 +103,7 @@ class NameMatcher:
         limit: int = 2,
         threshold: int = 75,
     ) -> pd.DataFrame():
-        """ Fuzzy match client name with names from open source with levenshtein distance.
+        """Fuzzy match client name with names from open source with levenshtein distance.
 
             Step 1. Match on date fo birth to reduce set.
             Step 2. Match on client lastname and complete name from open source.
@@ -293,7 +283,7 @@ class NameMatcher:
 
     @staticmethod
     def _token_set_ratio(value_1: str, value_2: str) -> float:
-        """ This function tokenizes, lowercases, removes punctuations and sorts the strings alphabetically and then joins the two strings with fuzz.ratio().
+        """This function tokenizes, lowercases, removes punctuations and sorts the strings alphabetically and then joins the two strings with fuzz.ratio().
 
         Parameters:
         ----------
@@ -314,7 +304,7 @@ class NameMatcher:
 
     @staticmethod
     def _ratio(target: str, source: str) -> int:
-        """ Compare the lastname of the client with the different name tokens from the open source data.
+        """Compare the lastname of the client with the different name tokens from the open source data.
 
         Parameters
         ----------
@@ -342,7 +332,7 @@ class NameMatcher:
     def _same_address(
         self, df_matched: pd.DataFrame, df_client: pd.DataFrame
     ) -> pd.DataFrame:
-        """ Extract list of clients with the same address.
+        """Extract list of clients with the same address.
 
             For clients who have a string similarity score above
             a certain threshold check whether other clients are also registered
