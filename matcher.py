@@ -49,7 +49,7 @@ class NameMatcher:
     ) -> pd.DataFrame:
         """Parses all client csv files from the input path into a DataFrame.
 
-        The main purpose here is to concatenate the open source files and parse
+        The main purpose here is to concatenate the client files and parse
         the names and date of births. That is normalize(nfkd), transliterate and
         casefold the names of all entities. The results are returned as a
         pandas.DataFrame.
@@ -74,10 +74,13 @@ class NameMatcher:
 
         input_data = pd.DataFrame()
 
+        # LK: Conventie is dat je attributen in de __init__ aanmaakt.
+        # LK: Waarom worden deze hier ingesteld?
         self._type_screening = type_screening
         self._train_model = train_model
 
         try:
+            # LK: Checken of alle kolommen in de clienten data zitten?
             input_data = pd.read_csv(
                 self._client_data_path,
                 delimiter="|",
@@ -93,9 +96,11 @@ class NameMatcher:
         if self._type_screening == "leaked papers":
             return self._knn(input_data, open_source_parsed)
         else:
+            # LK: Alleen leaked gebruikt dus NN matching methode?
+            # LK: Waarom niet overal consistent toepassen?
+            # LK: Beide methodes een eigen class; zij zijn behoorlijk anders?
             return self._levenshtein(input_data, open_source_parsed)
 
-    # TODO: Add docstrings
     def _levenshtein(
         self,
         df_client: pd.DataFrame(),
@@ -103,34 +108,33 @@ class NameMatcher:
         limit: int = 2,
         threshold: int = 75,
     ) -> pd.DataFrame():
-        """Fuzzy match client name with names from open source with levenshtein distance.
+        """Match client names with open source lists using levenshtein distance.
 
-            Step 1. Match on date fo birth to reduce set.
+            Step 1. Match on date of birth to reduce set.
             Step 2. Match on client lastname and complete name from open source.
 
         Parameters
         ----------
         df_client: pd.DataFrame()
-            Contains information with respect to clients.
-
+            Contains information of clients to screen.
         df_open_source: pd.DataFrame()
-            Could be pep list or sanction list.
-
+            Contains PEP or sanction list information.
         limit: int
-            .....
-
+            Maximum number of matches per client.
         threshold: int
-            .....
+            Lower threshold to count as a match.
 
         Returns
         -------
         pd.DataFrame()
-            ......
+            DataFrame of matched clients.
         """
 
         df_client = df_client.assign(year=lambda x: x.client_dob.dt.year)
 
         # "year" column is filled when "dob" is an int, else empty.
+        # LK: Dit lijkt me ik een vrij sketchy manier om jaar te isoleren?
+        # LK: Daarbij; zou je dit niet in de prep van die OS lijsten willen doen?
         df_open_source["year"] = pd.to_numeric(df_open_source["dob"], "coerce")
 
         df_open_source["dob"] = pd.to_datetime(df_open_source["dob"]).where(
@@ -140,7 +144,11 @@ class NameMatcher:
         # DOB matching: Union- merge rows on year OR datetime
         merged = pd.concat(
             [
+                # LK: Hier matchen ook alle volledige DOB (want dit is minder exact)...
                 df_client.merge(df_open_source, how="inner", on="year"),
+
+                # LK: Wat voegt deze nog toe? Alle koppels zijn hierboven al gemaakt?
+                # LK: Misschien is match op alleen geboortejaar wel prima?
                 df_client.merge(
                     df_open_source.drop(columns=["year"]),
                     how="inner",
@@ -158,15 +166,20 @@ class NameMatcher:
 
         # Aggregate to find the n largest match percentages per client
         aggregated = (
-            merged.query(f"match_percentage >= {threshold}")
+            merged
+            .query(f"match_percentage >= {threshold}")
             .drop(columns=["year"])
             .groupby(["client_name", "client_dob"])
             .apply(lambda grp: grp.nlargest(limit, "match_percentage"))
             .reset_index(drop=True)
         )
 
+        # LK: Er wordt dus ook nog gematched op adres?
+        # LK: Zo ja, dan zou ik dat wel als stap in de docstring zetten...
         aggregated = self._same_address(aggregated, df_client)
 
+        # LK: Je hebt vrij vaak select / rename in je code.
+        # LK: Probeer dit te concentreren op 1 plek, bijvoorbeeld bij het inlezen.
         columns = [
             "client_name_y",
             "client_lastname_y",
@@ -177,9 +190,9 @@ class NameMatcher:
             "date_end",
             "match_percentage",
         ]
-
         aggregated = aggregated[columns]
 
+        # LK: En had die _y suffix niet vermeden kunnen worden?
         aggregated.rename(
             columns={
                 "client_name_y": "client_name",
@@ -191,6 +204,7 @@ class NameMatcher:
             inplace=True,
         )
 
+        # LK: Zijn ze geinteresseerd in huisgenoten?
         nb_housemates = aggregated.loc[
             aggregated["client_rol"] == "housemate", :
         ].shape[0]
@@ -200,6 +214,7 @@ class NameMatcher:
 
         return aggregated
 
+    # LK: De KNN methode is eigenlijk een heel ding op zich...
     def _knn(self, test: pd.DataFrame(), train: pd.DataFrame()) -> pd.DataFrame():
 
         self._log.info(
@@ -222,9 +237,9 @@ class NameMatcher:
         )
 
         if self._train_model:
-            self._log.info("Getting tfidf matrix.")
+            self._log.info("Building TFIDF matrix.")
 
-            # Train['name'] values are not unique because a name can have more than 1 address.
+            # Training names are not unique because of multiple addresses.
             train_tfidf = vectorizer.fit_transform(train["name"])
 
             self._log.info("Getting nearest neighbours.")
@@ -241,10 +256,12 @@ class NameMatcher:
             with open("output/vectorizer.pickle", "rb") as f:
                 vectorizer = pickle.load(f)
 
-        self._log.info("Fitting test data.")
+        # LK: De gebruiker weet niet wat de test data is...
+        self._log.info("Matching client names using KNN.")
         test_tfidf = vectorizer.transform(test["client_name"])
         distances, indices = nbrs.kneighbors(test_tfidf)
 
+        # LK: Deze code kan wel simpeler naar mijn idee...
         self._log.info("Finding matches...")
         matches = []
         for i, j in enumerate(indices):
@@ -269,11 +286,12 @@ class NameMatcher:
                 "name_match",
             ],
         )
+
+        # LK: Twee vormen van adres matching?
         matches["address_match(higher is better)"] = matches.apply(
             lambda df: self._token_set_ratio(df["lp_address"], df["client_address"]),
             axis="columns",
         )
-
         matches = self._same_address(matches, test)
         matches.drop_duplicates(inplace=True)
 
@@ -281,50 +299,55 @@ class NameMatcher:
 
         return matches.sort_values(by="index", ascending=True)
 
+    # LK: Duidelijk maken dat het om adressen gaat in naamgeving?
     @staticmethod
-    def _token_set_ratio(value_1: str, value_2: str) -> float:
-        """This function tokenizes, lowercases, removes punctuations and sorts the strings alphabetically and then joins the two strings with fuzz.ratio().
+    def _token_set_ratio(match: str, target: str) -> float:
+        """Matches two addresses using fuzzy matching.
+
+        Addresses are cleansed by converting to lowercase, removing punctuations.
+        The addresses are then tokenized and the tokens are sorted alphabetically.
+        Finally the amount of overlap is computed using fuzz.ratio().
 
         Parameters:
         ----------
-        value_1: string
-            It is address
+        match: str
+            Address to match as string.
 
-        value_2: string
-            It is address
+        target: str
+            Address to match against as string.
 
         Returns:
         -------
-        Float:
-            Returns a measure of similarity between 0 and 100 bases on Levenstein distance.
+        float
+            Measure of similarity between 0 and 100.
 
 
         """
-        return fuzz.token_set_ratio(value_1, value_2)
+        return fuzz.token_set_ratio(match, target)
 
+    # LK: Naamgeving; aangeven dat het om achternamen gaat.
     @staticmethod
-    def _ratio(target: str, source: str) -> int:
-        """Compare the lastname of the client with the different name tokens from the open source data.
+    def _ratio(client: str, target: str) -> float:
+        """Match lastnames against names in open source data.
 
         Parameters
         ----------
-        target: string
-            Is client name.
+        client: str
+            Client name as string.
 
-        source: string
-            Complete name from the open source data.
+        target: str
+            Name to match against as string.
 
         Returns
         -------
-        integer
-            Returns a measure of the sequence similarity between 0 and 100.
+        float
+            Measure of similarity between 0 and 100.
         """
 
-        target = target.split()
+        client = client.split()
         vector = []
-
-        for _, token in enumerate(target):
-            match = fuzz.ratio(source, token)
+        for _, token in enumerate(client):
+            match = fuzz.ratio(target, token)
             vector.append(match)
 
         return max(vector)
@@ -332,19 +355,20 @@ class NameMatcher:
     def _same_address(
         self, df_matched: pd.DataFrame, df_client: pd.DataFrame
     ) -> pd.DataFrame:
-        """Extract list of clients with the same address.
+        """Create a list of clients registered at the same address.
 
-            For clients who have a string similarity score above
-            a certain threshold check whether other clients are also registered
+            For clients who have a string similarity score above a certain
+            threshold check whether other clients are also registered
             at the same address.
 
         Parameters
         ----------
         df_matched: pandas.DataFrame
-            Is a pandas.DataFrame where client information (last name and dob) is already matched with open source entities.
+            DataFrame where client information (last name and dob) is already
+            matched with open source data.
 
         df_client: pandas.DataFrame
-            Is a pandas.DataFrame where client information is found such as address.
+            DataFrame with client information including address.
 
         Returns
         -------
@@ -356,6 +380,7 @@ class NameMatcher:
             df_client,
             left_on=["client_address"],
             right_on=["client_address"],
+            # LK: Lijkt me dat je met deze validatie weinig opschiet?
             validate="m:m",
             suffixes=("", "_y"),
             how="left",

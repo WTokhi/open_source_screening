@@ -11,6 +11,10 @@ import pandas as pd
 import numpy as np
 
 
+# LK: Deze module is erg lang; ik zou het opsplitsen.
+# LK: De NameMixin kan soweiso naar een aparte module.
+# LK: Ook de LeakedPapers class wijkt erg af en zou apart kunnen.
+
 class NameMixin(ABC):
     """Mixin for parsing names from PEP and sanction lists or leaked papers."""
 
@@ -178,7 +182,9 @@ class Pep(NameMixin):
         # fix dob for islamic years
         data_frame["dob"] = data_frame["dob"].apply(self.convert_islamic_to_gregorian)
 
-        # TODO: Find a better solution. For the time being mask this entity because dob is not correct.
+        # TODO: Find a better solution. For now, mask entity with incorrect dob.
+        # LK: Waarom niet conversie naar datum en alle records die falen weggooien?
+        # LK: Deze oplossing lijkt me niet heel generiek...
         data_frame = data_frame[
             ~data_frame["dob"].isin(("1973-09-31", "1951-06-31", "2346"))
         ]
