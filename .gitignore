@@ -1,5 +1,6 @@
 __pycache__
 .DS_Store
+*.log
+output/*.pickle
 archive
 input/open_source/leaked_papers
-output/*.pickle
