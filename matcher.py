@@ -161,17 +161,17 @@ class NameMatcher:
         ).drop_duplicates()
 
         # fuzzy match on lastname and normalized name with .ratio() method
-        merged["match_percentage"] = merged.apply(
+        merged["name_match"] = merged.apply(
             lambda df: self._ratio(df["person_normalized"], df["client_lastname"]),
             axis="columns",
         )
 
         # Aggregate to find the n largest match percentages per client
         aggregated = (
-            merged.query(f"match_percentage >= {threshold}")
+            merged.query(f"name_match >= {threshold}")
             .drop(columns=["year"])
             .groupby(["client_name", "client_dob"])
-            .apply(lambda grp: grp.nlargest(limit, "match_percentage"))
+            .apply(lambda grp: grp.nlargest(limit, "name_match"))
             .reset_index(drop=True)
         )
 
@@ -185,7 +185,9 @@ class NameMatcher:
             "client_rol",
             "date_start",
             "date_end",
-            "match_percentage",
+            "name_match",
+            "person",
+            "dob"
         ]
 
         aggregated = aggregated[columns]
@@ -197,6 +199,7 @@ class NameMatcher:
                 "client_dob_y": "client_dob",
                 "date_start": "start_date",
                 "date_end": "end_date",
+                "name_match": "name_match(higher is beter)"
             },
             inplace=True,
         )
@@ -376,7 +379,7 @@ class NameMatcher:
             self._type_screening,
             "housemate",
         )
-        df_same_address["name_match(higher is beter)"] = np.where(
+        df_same_address["name_match"] = np.where(
             df_same_address["client_rol"] != "housemate",
             df_same_address["name_match"],
             np.nan,
