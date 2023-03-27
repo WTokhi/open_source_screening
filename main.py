@@ -79,7 +79,7 @@ def main(config_path: str) -> None:
         logger.error(msg)
         raise TypeError(msg)
 
-    if client_data_path:
+    if not client_data_path:
         msg = "Client data path is missing in the configuration file."
         logger.error(msg)
         raise TypeError(msg)
