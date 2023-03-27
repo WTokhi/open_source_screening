@@ -166,12 +166,8 @@ class NameMatcher:
 
         # Aggregate to find the n largest match percentages per client
         aggregated = (
-<<<<<<< HEAD
-            merged.query(f"name_match >= {threshold}")
-=======
             merged
-            .query(f"match_percentage >= {threshold}")
->>>>>>> a7a883c (Finalize first review)
+            .query(f"name_match >= {threshold}")
             .drop(columns=["year"])
             .groupby(["client_name", "client_dob"])
             .apply(lambda grp: grp.nlargest(limit, "name_match"))
