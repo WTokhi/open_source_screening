@@ -288,8 +288,10 @@ class Sanction(NameMixin):
 
         # Extract dob. Persons with multiple date of birth are regarded as different entity
         sanction_list_np["birth_date_fixed"] = (
-            sanction_list_np["birth_date"].str.split(";").explode("birth_date_fixed")
+            sanction_list_np["birth_date"].str.split(";")
         )
+        
+        sanction_list_np = sanction_list_np.explode("birth_date_fixed")
 
         # Extract sanction start date
         sanction_list_np["date_start"] = (
